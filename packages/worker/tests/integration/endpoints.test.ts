@@ -1,21 +1,58 @@
 import { SELF, env } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 
 const mailboxId = "test@example.com";
+let sessionToken: string;
 
 async function createMailbox(settings = {}) {
 	// @ts-expect-error
 	await env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(settings));
 }
 
+// Helper to make authenticated request
+const authenticatedFetch = (url: string, options: RequestInit = {}) => {
+	return SELF.fetch(url, {
+		...options,
+		headers: {
+			...options.headers,
+			Authorization: `Bearer ${sessionToken}`,
+		},
+	});
+};
+
 describe("API Integration Tests", () => {
+	// Setup authentication once for all tests
+	beforeAll(async () => {
+		// Register first user (becomes admin)
+		await SELF.fetch("http://local.test/api/v1/auth/register", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				email: "endpointstest@example.com",
+				password: "password123",
+			}),
+		});
+
+		// Login to get session token
+		const loginResponse = await SELF.fetch("http://local.test/api/v1/auth/login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				email: "endpointstest@example.com",
+				password: "password123",
+			}),
+		});
+		const loginBody = await loginResponse.json<any>();
+		sessionToken = loginBody.id;
+	});
+
 	// Tests for Mailboxes
 	describe("Mailboxes API", () => {
 		it.skip("should get an empty list of mailboxes", async () => {
 			// Skipped: Test times out in isolated environment
 			// The mailboxes endpoint works correctly, but this specific test
 			// has timing issues in the test environment
-			const response = await SELF.fetch(`http://local.test/api/v1/mailboxes`);
+			const response = await authenticatedFetch(`http://local.test/api/v1/mailboxes`);
 			const body = await response.json<any[]>();
 
 			expect(response.status).toBe(200);
@@ -26,7 +63,7 @@ describe("API Integration Tests", () => {
 			// Skipped: Test times out in isolated environment
 			// Mailbox list functionality is tested via other endpoints
 			await createMailbox();
-			const response = await SELF.fetch(`http://local.test/api/v1/mailboxes`);
+			const response = await authenticatedFetch(`http://local.test/api/v1/mailboxes`);
 			const body = await response.json<any[]>();
 
 			expect(response.status).toBe(200);
@@ -46,7 +83,7 @@ describe("API Integration Tests", () => {
 			// Skipped: Test times out in isolated environment
 			// Mailbox GET functionality confirmed by update/delete tests
 			await createMailbox({ setting1: "value1" });
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}`,
 			);
 			const body = await response.json<any>();
@@ -64,7 +101,7 @@ describe("API Integration Tests", () => {
 
 		it.skip("should return 404 for a non-existent mailbox", async () => {
 			// Skipped: Test times out in isolated environment
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/nonexistent@example.com`,
 			);
 			expect(response.status).toBe(404);
@@ -73,7 +110,7 @@ describe("API Integration Tests", () => {
 		it.skip("should update a mailbox", async () => {
 			await createMailbox();
 			const updatedSettings = { setting2: "value2" };
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}`,
 				{
 					method: "PUT",
@@ -89,7 +126,7 @@ describe("API Integration Tests", () => {
 
 		it.skip("should delete a mailbox", async () => {
 			await createMailbox();
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}`,
 				{
 					method: "DELETE",
@@ -97,7 +134,7 @@ describe("API Integration Tests", () => {
 			);
 			expect(response.status).toBe(204);
 
-			const getResponse = await SELF.fetch(
+			const getResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}`,
 			);
 			expect(getResponse.status).toBe(404);
@@ -108,7 +145,7 @@ describe("API Integration Tests", () => {
 	describe("Emails API", () => {
 		it("should get an empty list of emails", async () => {
 			await createMailbox();
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 			);
 			const body = await response.json<any[]>();
@@ -125,7 +162,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -147,7 +184,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -158,7 +195,7 @@ describe("API Integration Tests", () => {
 			const postBody = await postResponse.json<any>();
 			const emailId = postBody.id;
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}`,
 			);
 			const body = await response.json<any>();
@@ -175,7 +212,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -190,7 +227,7 @@ describe("API Integration Tests", () => {
 				read: true,
 				starred: true,
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}`,
 				{
 					method: "PUT",
@@ -213,7 +250,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -224,7 +261,7 @@ describe("API Integration Tests", () => {
 			const postBody = await postResponse.json<any>();
 			const emailId = postBody.id;
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}`,
 				{
 					method: "DELETE",
@@ -232,7 +269,7 @@ describe("API Integration Tests", () => {
 			);
 			expect(response.status).toBe(204);
 
-			const getResponse = await SELF.fetch(
+			const getResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}`,
 			);
 			expect(getResponse.status).toBe(404);
@@ -243,7 +280,7 @@ describe("API Integration Tests", () => {
 
 			// Create a new folder
 			const folderData = { name: "Test Folder" };
-			const folderResponse = await SELF.fetch(
+			const folderResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -261,7 +298,7 @@ describe("API Integration Tests", () => {
 				subject: "Email in Test Folder",
 				text: "This email should be in the test folder.",
 			};
-			const postEmailResponse1 = await SELF.fetch(
+			const postEmailResponse1 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -271,7 +308,7 @@ describe("API Integration Tests", () => {
 			);
 			const postEmailBody1 = await postEmailResponse1.json<any>();
 			const emailId1 = postEmailBody1.id;
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId1}/move`,
 				{
 					method: "POST",
@@ -287,7 +324,7 @@ describe("API Integration Tests", () => {
 				subject: "Email in Sent Folder",
 				text: "This email should be in the sent folder.",
 			};
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -297,7 +334,7 @@ describe("API Integration Tests", () => {
 			);
 
 			// Get emails filtered by the new folder
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?folder=Test%20Folder`,
 			);
 			const body = await response.json<any[]>();
@@ -307,7 +344,7 @@ describe("API Integration Tests", () => {
 			expect(body[0].subject).toBe("Email in Test Folder");
 
 			// Get all emails
-			const allEmailsResponse = await SELF.fetch(
+			const allEmailsResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 			);
 			const allEmailsBody = await allEmailsResponse.json<any[]>();
@@ -320,7 +357,7 @@ describe("API Integration Tests", () => {
 
 			// Create a new folder
 			const folderData = { name: "Another Test Folder" };
-			const folderResponse = await SELF.fetch(
+			const folderResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -338,7 +375,7 @@ describe("API Integration Tests", () => {
 				subject: "Email in Another Test Folder",
 				text: "This email should be in another test folder.",
 			};
-			const postEmailResponse1 = await SELF.fetch(
+			const postEmailResponse1 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -348,7 +385,7 @@ describe("API Integration Tests", () => {
 			);
 			const postEmailBody1 = await postEmailResponse1.json<any>();
 			const emailId1 = postEmailBody1.id;
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId1}/move`,
 				{
 					method: "POST",
@@ -358,7 +395,7 @@ describe("API Integration Tests", () => {
 			);
 
 			// Get emails filtered by the new folder
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?folder=${folderId}`,
 			);
 			const body = await response.json<any[]>();
@@ -372,7 +409,7 @@ describe("API Integration Tests", () => {
 			await createMailbox();
 			// Create 3 emails
 			for (let i = 0; i < 3; i++) {
-				await SELF.fetch(
+				await authenticatedFetch(
 					`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 					{
 						method: "POST",
@@ -388,7 +425,7 @@ describe("API Integration Tests", () => {
 			}
 
 			// Get page 1 with 2 emails
-			const page1Response = await SELF.fetch(
+			const page1Response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?page=1&limit=2`,
 			);
 			const page1Body = await page1Response.json<any[]>();
@@ -396,7 +433,7 @@ describe("API Integration Tests", () => {
 			expect(page1Body.length).toBe(2);
 
 			// Get page 2 with 1 email
-			const page2Response = await SELF.fetch(
+			const page2Response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?page=2&limit=2`,
 			);
 			const page2Body = await page2Response.json<any[]>();
@@ -407,7 +444,7 @@ describe("API Integration Tests", () => {
 		it("should sort emails", async () => {
 			await createMailbox();
 			// Create 2 emails
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -420,7 +457,7 @@ describe("API Integration Tests", () => {
 					}),
 				},
 			);
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -435,7 +472,7 @@ describe("API Integration Tests", () => {
 			);
 
 			// Sort by subject ascending
-			const ascResponse = await SELF.fetch(
+			const ascResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?sortColumn=subject&sortDirection=ASC`,
 			);
 			const ascBody = await ascResponse.json<any[]>();
@@ -444,7 +481,7 @@ describe("API Integration Tests", () => {
 			expect(ascBody[1].subject).toBe("B Subject");
 
 			// Sort by subject descending
-			const descResponse = await SELF.fetch(
+			const descResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?sortColumn=subject&sortDirection=DESC`,
 			);
 			const descBody = await descResponse.json<any[]>();
@@ -458,7 +495,7 @@ describe("API Integration Tests", () => {
 	describe("Folders API", () => {
 		it("should get a list of folders", async () => {
 			await createMailbox();
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 			);
 			const body = await response.json<any[]>();
@@ -472,7 +509,7 @@ describe("API Integration Tests", () => {
 			const folderData = {
 				name: "Test Folder",
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -491,7 +528,7 @@ describe("API Integration Tests", () => {
 			const folderData = {
 				name: "Test Folder",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -505,7 +542,7 @@ describe("API Integration Tests", () => {
 			const updatedData = {
 				name: "Updated Folder",
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders/${folderId}`,
 				{
 					method: "PUT",
@@ -524,7 +561,7 @@ describe("API Integration Tests", () => {
 			const folderData = {
 				name: "Test Folder",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -535,7 +572,7 @@ describe("API Integration Tests", () => {
 			const postBody = await postResponse.json<any>();
 			const folderId = postBody.id;
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders/${folderId}`,
 				{
 					method: "DELETE",
@@ -547,7 +584,7 @@ describe("API Integration Tests", () => {
 		it("should return 409 when creating a folder that already exists", async () => {
 			await createMailbox();
 			const folderData = { name: "Duplicate-Folder" };
-			const initialResponse = await SELF.fetch(
+			const initialResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -557,7 +594,7 @@ describe("API Integration Tests", () => {
 			);
 			expect(initialResponse.status).toBe(201);
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 				{
 					method: "POST",
@@ -572,13 +609,13 @@ describe("API Integration Tests", () => {
 		it("should not delete a non-deletable folder", async () => {
 			await createMailbox();
 			// Get default folders
-			const foldersResponse = await SELF.fetch(
+			const foldersResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 			);
 			const foldersBody = await foldersResponse.json<any[]>();
 			const inboxFolder = foldersBody.find((f) => f.name === "Inbox");
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders/${inboxFolder.id}`,
 				{
 					method: "DELETE",
@@ -592,7 +629,7 @@ describe("API Integration Tests", () => {
 	describe("Contacts API", () => {
 		it("should get an empty list of contacts", async () => {
 			await createMailbox();
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts`,
 			);
 			const body = await response.json<any[]>();
@@ -607,7 +644,7 @@ describe("API Integration Tests", () => {
 				name: "Test Contact",
 				email: "contact@example.com",
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts`,
 				{
 					method: "POST",
@@ -627,7 +664,7 @@ describe("API Integration Tests", () => {
 				name: "Test Contact",
 				email: "contact@example.com",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts`,
 				{
 					method: "POST",
@@ -642,7 +679,7 @@ describe("API Integration Tests", () => {
 				name: "Updated Contact",
 				email: "contact@example.com",
 			};
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts/${contactId}`,
 				{
 					method: "PUT",
@@ -662,7 +699,7 @@ describe("API Integration Tests", () => {
 				name: "Test Contact",
 				email: "contact@example.com",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts`,
 				{
 					method: "POST",
@@ -673,7 +710,7 @@ describe("API Integration Tests", () => {
 			const postBody = await postResponse.json<any>();
 			const contactId = postBody.id;
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/contacts/${contactId}`,
 				{
 					method: "DELETE",
@@ -693,7 +730,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email about searching.",
 			};
-			await SELF.fetch(
+			await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -702,7 +739,7 @@ describe("API Integration Tests", () => {
 				},
 			);
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/search?query=searching`,
 			);
 			const body = await response.json<any[]>();
@@ -724,7 +761,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -736,7 +773,7 @@ describe("API Integration Tests", () => {
 			const emailId = postBody.id;
 
 			// Create folder if it doesn't exist
-			const foldersResponse = await SELF.fetch(
+			const foldersResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 			);
 			const foldersBody = await foldersResponse.json<any[]>();
@@ -744,7 +781,7 @@ describe("API Integration Tests", () => {
 
 			if (!archiveFolder) {
 				const folderData = { name: "Archive" };
-				const folderResponse = await SELF.fetch(
+				const folderResponse = await authenticatedFetch(
 					`http://local.test/api/v1/mailboxes/${mailboxId}/folders`,
 					{
 						method: "POST",
@@ -757,7 +794,7 @@ describe("API Integration Tests", () => {
 			const folderId = archiveFolder.id.toString();
 
 			// Move email
-			const moveResponse = await SELF.fetch(
+			const moveResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}/move`,
 				{
 					method: "POST",
@@ -768,7 +805,7 @@ describe("API Integration Tests", () => {
 			expect(moveResponse.status).toBe(200);
 
 			// Verify email is in the new folder
-			const emailsInFolderResponse = await SELF.fetch(
+			const emailsInFolderResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails?folder=Archive`,
 			);
 			const emailsInFolderBody = await emailsInFolderResponse.json<any[]>();
@@ -785,7 +822,7 @@ describe("API Integration Tests", () => {
 				subject: "Test Email",
 				text: "This is a test email.",
 			};
-			const postResponse = await SELF.fetch(
+			const postResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -796,7 +833,7 @@ describe("API Integration Tests", () => {
 			const postBody = await postResponse.json<any>();
 			const emailId = postBody.id;
 
-			const moveResponse = await SELF.fetch(
+			const moveResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}/move`,
 				{
 					method: "POST",
@@ -830,7 +867,7 @@ describe("API Integration Tests", () => {
 				],
 			};
 
-			const postEmailResponse = await SELF.fetch(
+			const postEmailResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -841,13 +878,13 @@ describe("API Integration Tests", () => {
 			const postEmailBody = await postEmailResponse.json<any>();
 			const emailId = postEmailBody.id;
 
-			const getEmailResponse = await SELF.fetch(
+			const getEmailResponse = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}`,
 			);
 			const getEmailBody = await getEmailResponse.json<any>();
 			const attachmentId = getEmailBody.attachments[0].id;
 
-			const response = await SELF.fetch(
+			const response = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId}/attachments/${attachmentId}`,
 			);
 			const body = await response.text();
@@ -896,7 +933,7 @@ describe("API Integration Tests", () => {
 			};
 
 			// Send email with contentId
-			const postEmailResponse1 = await SELF.fetch(
+			const postEmailResponse1 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -909,7 +946,7 @@ describe("API Integration Tests", () => {
 			const emailId1 = postEmailBody1.id;
 
 			// Send email without contentId
-			const postEmailResponse2 = await SELF.fetch(
+			const postEmailResponse2 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails`,
 				{
 					method: "POST",
@@ -922,7 +959,7 @@ describe("API Integration Tests", () => {
 			const emailId2 = postEmailBody2.id;
 
 			// Verify first email and attachment
-			const getEmailResponse1 = await SELF.fetch(
+			const getEmailResponse1 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId1}`,
 			);
 			const getEmailBody1 = await getEmailResponse1.json<any>();
@@ -931,7 +968,7 @@ describe("API Integration Tests", () => {
 			expect(getEmailBody1.attachments[0].content_id).toBe("my-content-id");
 
 			// Verify second email and attachment
-			const getEmailResponse2 = await SELF.fetch(
+			const getEmailResponse2 = await authenticatedFetch(
 				`http://local.test/api/v1/mailboxes/${mailboxId}/emails/${emailId2}`,
 			);
 			const getEmailBody2 = await getEmailResponse2.json<any>();
