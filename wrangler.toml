@@ -1,3 +1,4 @@
+# 这里的 Name 建议保持小写 name，或者干脆删掉让 Pages 自动识别
 name = "email-explorer"
 compatibility_date = "2026-02-17"
 compatibility_flags = ["nodejs_compat"]
@@ -8,7 +9,6 @@ binding = "DB"
 database_name = "email-explorer-db"
 database_id = "f16fd67f-09f0-4854-9a2a-8d0bfe55b38a"
 
-
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "email-explorer"
@@ -16,5 +16,10 @@ bucket_name = "email-explorer"
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
+# 🚨 必填：Pages 必须明确知道 DO 类定义在哪个脚本中
+script_name = "email-explorer"
 
-
+# 🚨 必填：必须告诉 Cloudflare 你的代码里有 MailboxDO 这个类
+[[migrations]]
+tag = "v1"
+new_classes = ["MailboxDO"]
