@@ -1689,7 +1689,14 @@ const defaultOptions: EmailExplorerOptions = {
 	},
 };
 
+async function bootstrapMailboxDO(env: Env) {
+	const mailboxId = env.MAILBOX.idFromName("MailboxDO");
+	const mailboxDO = env.MAILBOX.get(mailboxId);
+	await mailboxDO.getFolders();
+}
+
 export function EmailExplorer(_options: EmailExplorerOptions = {}) {
+
 	// Merge user options with defaults
 	const options: EmailExplorerOptions = {
         ..._options,
@@ -1710,6 +1717,7 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
 			// Make options available to routes via env
 			env.config = options;
+			await bootstrapMailboxDO(env);
 
 			// Create a new request with context for middleware
 			const url = new URL(request.url);
