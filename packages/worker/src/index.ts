@@ -380,6 +380,9 @@ class PostMailbox extends OpenAPIRoute {
 		await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
 
 		// Initialize the durable object for this mailbox
+   // @ts-ignore
+if (!c.env.MAILBOX) return c.text("Waiting for MAILBOX binding...", 200);
+
 		const ns = c.env.MAILBOX;
 		const id = ns.idFromName(email);
 		const stub = ns.get(id);
