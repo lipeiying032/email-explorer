@@ -133,6 +133,10 @@ export default {
 	adminRegisterUser: (email: string, password: string) =>
 		apiClient.post("/api/v1/auth/admin/register", { email, password }),
 	adminListUsers: () => apiClient.get("/api/v1/auth/admin/users"),
+	adminUpdateUser: (
+		userId: string,
+		updates: { isAdmin?: boolean; password?: string },
+	) => apiClient.put(`/api/v1/auth/admin/users/${userId}`, updates),
 	adminGrantAccess: (userId: string, mailboxId: string, role: string) =>
 		apiClient.post("/api/v1/auth/admin/grant-access", {
 			userId,
