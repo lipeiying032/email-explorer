@@ -1,4 +1,0 @@
-name = "email-explorer"
-compatibility_date = "2026-02-17"
-main = "dist/index.js"          # 指向构建后的 Worker 入口
-assets = { directory = "dashboard" }  # 前端静态目录
