@@ -84,16 +84,99 @@ export class MailboxDO extends DurableObject<Env> {
 	// Auth helper: hash password using Web Crypto API
 	async #hashPassword(password: string): Promise<string> {
 		const encoder = new TextEncoder();
-		const data = encoder.encode(password);
-		const hash = await crypto.subtle.digest("SHA-256", data);
-		const hashArray = Array.from(new Uint8Array(hash));
-		return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+		const salt = crypto.getRandomValues(new Uint8Array(16));
+		const key = await crypto.subtle.importKey(
+			"raw",
+			encoder.encode(password),
+			{ name: "PBKDF2" },
+			false,
+			["deriveBits"],
+		);
+		const bits = await crypto.subtle.deriveBits(
+			{
+				name: "PBKDF2",
+				salt,
+				iterations: 100_000,
+				hash: "SHA-256",
+			},
+			key,
+			256,
+		);
+
+		const saltBase64 = btoa(String.fromCharCode(...salt));
+		const hashBase64 = btoa(String.fromCharCode(...new Uint8Array(bits)));
+		return `${saltBase64}:${hashBase64}`;
 	}
 
 	// Auth helper: verify password
 	async #verifyPassword(password: string, hash: string): Promise<boolean> {
-		const passwordHash = await this.#hashPassword(password);
-		return passwordHash === hash;
+		const [saltBase64, storedHash] = hash.split(":");
+		if (!saltBase64 || !storedHash) return false;
+
+		const salt = Uint8Array.from(atob(saltBase64), (char) =>
+			char.charCodeAt(0),
+		);
+		const encoder = new TextEncoder();
+		const key = await crypto.subtle.importKey(
+			"raw",
+			encoder.encode(password),
+			{ name: "PBKDF2" },
+			false,
+			["deriveBits"],
+		);
+		const bits = await crypto.subtle.deriveBits(
+			{
+				name: "PBKDF2",
+				salt,
+				iterations: 100_000,
+				hash: "SHA-256",
+			},
+			key,
+			256,
+		);
+		const candidateHash = btoa(
+			String.fromCharCode(...new Uint8Array(bits)),
+		);
+
+		return candidateHash === storedHash;
+	}
+
+	// Auth operation: seed default admin users when database is empty
+	async ensureDefaultAdmins(): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+
+		const countResult = this.#qb
+			.select("users")
+			.fields(["COUNT(*) as count"])
+			.one();
+
+		if ((countResult.results?.count as number) > 0) {
+			return;
+		}
+
+		const now = Date.now();
+		const passwordHash = await this.#hashPassword("admin");
+		const admins = ["admin@email.230406.xyz", "admin@230406.xyz"];
+
+		for (const email of admins) {
+			try {
+				this.#qb
+					.insert({
+						tableName: "users",
+						data: {
+							id: crypto.randomUUID(),
+							email,
+							password_hash: passwordHash,
+							is_admin: 1,
+							created_at: now,
+							updated_at: now,
+						},
+					})
+					.execute();
+			} catch {
+				// Ignore duplicate inserts caused by concurrent first requests.
+			}
+		}
 	}
 
 	// Auth helper: generate session token
@@ -319,6 +402,25 @@ export class MailboxDO extends DurableObject<Env> {
 				tableName: "users",
 				data: {
 					password_hash: hashedPassword,
+					updated_at: Date.now(),
+				},
+				where: {
+					conditions: "id = ?",
+					params: [userId],
+				},
+			})
+			.execute();
+	}
+
+	// Auth operation: update admin status
+	async updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+
+		this.#qb
+			.update({
+				tableName: "users",
+				data: {
+					is_admin: isAdmin ? 1 : 0,
 					updated_at: Date.now(),
 				},
 				where: {
