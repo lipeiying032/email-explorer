@@ -15,4 +15,4 @@ bucket_name = "email-explorer"
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
-script_name = "REPLACE_WITH_YOUR_PAGES_PROJECT_NAME"
+script_name = "email-explorer"
