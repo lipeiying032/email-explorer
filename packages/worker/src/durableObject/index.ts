@@ -35,7 +35,11 @@ interface AttachmentData {
 	disposition?: string | null;
 }
 
+const DEFAULT_ADMIN_PASSWORD = "admin";
+const DEFAULT_ADMIN_EMAILS = ["admin@email.230406.xyz", "admin@230406.xyz"];
+
 export class MailboxDO extends DurableObject<Env> {
+
 	declare __DURABLE_OBJECT_BRAND: never;
 	#qb: DOQB;
 	#isAuthDO: boolean;
@@ -155,10 +159,9 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 
 		const now = Date.now();
-		const passwordHash = await this.#hashPassword("230406Sb");
-		const admins = ["admin@email.230406.xyz", "admin@230406.xyz"];
+		const passwordHash = await this.#hashPassword(DEFAULT_ADMIN_PASSWORD);
 
-		for (const email of admins) {
+		for (const email of DEFAULT_ADMIN_EMAILS) {
 			try {
 				this.#qb
 					.insert({
@@ -402,6 +405,25 @@ export class MailboxDO extends DurableObject<Env> {
 				tableName: "users",
 				data: {
 					password_hash: hashedPassword,
+					updated_at: Date.now(),
+				},
+				where: {
+					conditions: "id = ?",
+					params: [userId],
+				},
+			})
+			.execute();
+	}
+
+	// Auth operation: update admin status
+	async updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+
+		this.#qb
+			.update({
+				tableName: "users",
+				data: {
+					is_admin: isAdmin ? 1 : 0,
 					updated_at: Date.now(),
 				},
 				where: {
