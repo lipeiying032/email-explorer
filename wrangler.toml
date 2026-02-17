@@ -1,6 +1,6 @@
 name = "email-explorer"
 compatibility_date = "2026-02-17"
-compatibility_flags = ["nodejs_compat", "enable_email_sending_queuing"]
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
@@ -12,13 +12,7 @@ database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 binding = "BUCKET"
 bucket_name = "email-explorer"
 
-[[send_email]]
-name = "SEND_EMAIL"
-
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["MailboxDO"]
+script_name = "REPLACE_WITH_YOUR_PAGES_PROJECT_NAME"
