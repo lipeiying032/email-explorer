@@ -53,6 +53,7 @@ const RevokeAccessRequestSchema = z.object({
 
 const UpdateUserRequestSchema = z.object({
 	isAdmin: z.boolean().optional(),
+	password: z.string().min(5).optional(),
 });
 
 // Helper function to get auth DO
@@ -369,7 +370,19 @@ export class PutUser extends OpenAPIRoute {
 			return c.json({ error: "Admin privileges required" }, 403);
 		}
 
-		// TODO: Implement user update logic in MailboxDO
+		const data = await this.getValidatedData<typeof this.schema>();
+		const { userId } = data.params;
+
+		const authDO = getAuthDO(c.env);
+
+		if (data.body.password !== undefined) {
+			await authDO.updateUserPassword(userId, data.body.password);
+		}
+
+		if (data.body.isAdmin !== undefined) {
+			await authDO.updateUserAdminStatus(userId, data.body.isAdmin);
+		}
+
 		return c.json({ status: "updated" });
 	}
 }
