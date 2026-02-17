@@ -5,8 +5,9 @@ pages_build_output_dir = "dist"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "email-explorer"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_name = "email-explorer-db"
+database_id = "f16fd67f-09f0-4854-9a2a-8d0bfe55b38a
+"
 
 [[r2_buckets]]
 binding = "BUCKET"
