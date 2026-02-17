@@ -28,5 +28,7 @@ export type Env = {
 	MAILBOX: DurableObjectNamespace<import("./durableObject/index").MailboxDO>;
 	BUCKET: R2Bucket;
 	SEND_EMAIL: SendEmail;
+	ASSETS: Fetcher;
+	DB: D1Database;
 	config?: EmailExplorerOptions;
 };
