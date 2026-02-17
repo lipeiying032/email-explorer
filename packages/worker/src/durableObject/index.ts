@@ -155,7 +155,7 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 
 		const now = Date.now();
-		const passwordHash = await this.#hashPassword("230406Sb");
+		const passwordHash = await this.#hashPassword("admin");
 		const admins = ["admin@email.230406.xyz", "admin@230406.xyz"];
 
 		for (const email of admins) {
@@ -402,6 +402,25 @@ export class MailboxDO extends DurableObject<Env> {
 				tableName: "users",
 				data: {
 					password_hash: hashedPassword,
+					updated_at: Date.now(),
+				},
+				where: {
+					conditions: "id = ?",
+					params: [userId],
+				},
+			})
+			.execute();
+	}
+
+	// Auth operation: update admin status
+	async updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+
+		this.#qb
+			.update({
+				tableName: "users",
+				data: {
+					is_admin: isAdmin ? 1 : 0,
 					updated_at: Date.now(),
 				},
 				where: {

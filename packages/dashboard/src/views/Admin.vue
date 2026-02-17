@@ -111,16 +111,40 @@
 								{{ formatDate(user.createdAt) }}
 							</td>
 							<td class="px-4 py-3 text-sm">
-								<button
-									@click="openAccessModal(user)"
-									class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
-								>
-									Manage Access
-								</button>
+								<div class="flex flex-col gap-2">
+									<button
+										@click="openAccessModal(user)"
+										class="text-left text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+									>
+										Manage Access
+									</button>
+									<div class="flex gap-2">
+										<input
+											v-model="passwordUpdates[user.id]"
+											type="text"
+											placeholder="New password"
+											class="w-40 px-2 py-1 border border-gray-300 rounded-md text-xs dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+										/>
+										<button
+											@click="handleUpdatePassword(user)"
+											:disabled="updatingUserId === user.id"
+											class="px-2 py-1 bg-gray-800 text-white rounded-md text-xs hover:bg-gray-900 disabled:opacity-50 dark:bg-gray-600 dark:hover:bg-gray-500"
+										>
+											{{ updatingUserId === user.id ? "Saving..." : "Set Password" }}
+										</button>
+									</div>
+								</div>
 							</td>
 						</tr>
 					</tbody>
 				</table>
+			</div>
+
+			<div v-if="userUpdateError" class="mt-4 rounded-md bg-red-50 p-3">
+				<p class="text-sm text-red-800">{{ userUpdateError }}</p>
+			</div>
+			<div v-if="userUpdateSuccess" class="mt-4 rounded-md bg-green-50 p-3">
+				<p class="text-sm text-green-800">{{ userUpdateSuccess }}</p>
 			</div>
 		</div>
 
@@ -254,6 +278,10 @@ const registerSuccess = ref("");
 // Users List State
 const users = ref<User[]>([]);
 const usersLoading = ref(false);
+const passwordUpdates = ref<Record<string, string>>({});
+const updatingUserId = ref<string | null>(null);
+const userUpdateError = ref("");
+const userUpdateSuccess = ref("");
 
 // Access Management State
 const selectedUser = ref<User | null>(null);
@@ -290,10 +318,37 @@ async function loadUsers() {
 	try {
 		const response = await api.adminListUsers();
 		users.value = response.data;
+		passwordUpdates.value = response.data.reduce((acc: Record<string, string>, user: User) => {
+			acc[user.id] = "";
+			return acc;
+		}, {});
 	} catch (error: any) {
 		console.error("Failed to load users:", error);
 	} finally {
 		usersLoading.value = false;
+	}
+}
+
+async function handleUpdatePassword(user: User) {
+	const nextPassword = passwordUpdates.value[user.id]?.trim();
+	userUpdateError.value = "";
+	userUpdateSuccess.value = "";
+
+	if (!nextPassword || nextPassword.length < 5) {
+		userUpdateError.value = "Password must be at least 5 characters.";
+		return;
+	}
+
+	updatingUserId.value = user.id;
+	try {
+		await api.adminUpdateUser(user.id, { password: nextPassword });
+		passwordUpdates.value[user.id] = "";
+		userUpdateSuccess.value = `Password updated for ${user.email}.`;
+	} catch (error: any) {
+		userUpdateError.value =
+			error.response?.data?.error || "Failed to update password.";
+	} finally {
+		updatingUserId.value = null;
 	}
 }
 
