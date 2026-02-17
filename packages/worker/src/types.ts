@@ -25,10 +25,10 @@ export interface User {
 }
 
 export type Env = {
-	ASSETS: Fetcher;
-	DB: D1Database;
 	MAILBOX: DurableObjectNamespace<import("./durableObject/index").MailboxDO>;
 	BUCKET: R2Bucket;
 	SEND_EMAIL: SendEmail;
+	ASSETS: Fetcher;
+	DB: D1Database;
 	config?: EmailExplorerOptions;
 };
