@@ -1689,10 +1689,21 @@ const defaultOptions: EmailExplorerOptions = {
 	},
 };
 
-async function bootstrapMailboxDO(env: Env) {
-	const mailboxId = env.MAILBOX.idFromName("MailboxDO");
-	const mailboxDO = env.MAILBOX.get(mailboxId);
-	await mailboxDO.getFolders();
+function bootstrapMailboxDO(
+	env: Env,
+	context: ExecutionContext,
+): void {
+	context.waitUntil(
+		(async () => {
+			try {
+				const mailboxId = env.MAILBOX.idFromName("MailboxDO");
+				const mailboxDO = env.MAILBOX.get(mailboxId);
+				await mailboxDO.getFolders();
+			} catch (error) {
+				console.error("Failed to bootstrap MailboxDO:", error);
+			}
+		})(),
+	);
 }
 
 export function EmailExplorer(_options: EmailExplorerOptions = {}) {
@@ -1717,7 +1728,7 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
 			// Make options available to routes via env
 			env.config = options;
-			await bootstrapMailboxDO(env);
+			bootstrapMailboxDO(env, context);
 
 			// Create a new request with context for middleware
 			const url = new URL(request.url);
