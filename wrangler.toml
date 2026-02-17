@@ -1,4 +1,3 @@
-# 这里的 Name 建议保持小写 name，或者干脆删掉让 Pages 自动识别
 name = "email-explorer"
 compatibility_date = "2026-02-17"
 compatibility_flags = ["nodejs_compat"]
@@ -16,10 +15,10 @@ bucket_name = "email-explorer"
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
-# 🚨 必填：Pages 必须明确知道 DO 类定义在哪个脚本中
+# 🚨 必须有这一行，且名字要和上面的 name 一致
 script_name = "email-explorer"
 
-# 🚨 必填：必须告诉 Cloudflare 你的代码里有 MailboxDO 这个类
+# 🚨 必须有这一块，这是报错里反复提示你加的
 [[migrations]]
 tag = "v1"
 new_classes = ["MailboxDO"]
