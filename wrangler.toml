@@ -15,10 +15,4 @@ bucket_name = "email-explorer"
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
-# 🚨 必须有这一行，且名字要和上面的 name 一致
 script_name = "email-explorer"
-
-# 🚨 必须有这一块，这是报错里反复提示你加的
-[[migrations]]
-tag = "v1"
-new_classes = ["MailboxDO"]
