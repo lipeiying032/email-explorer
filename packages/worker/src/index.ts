@@ -1689,16 +1689,17 @@ const defaultOptions: EmailExplorerOptions = {
 	},
 };
 
-async function bootstrapDefaultAdmins(env: Env) {
-	const authId = env.MAILBOX.idFromName("AUTH");
-	const authDO = env.MAILBOX.get(authId);
-	await authDO.ensureDefaultAdmins();
+async function bootstrapMailboxDO(env: Env) {
+	const mailboxId = env.MAILBOX.idFromName("MailboxDO");
+	const mailboxDO = env.MAILBOX.get(mailboxId);
+	await mailboxDO.getFolders();
 }
 
 export function EmailExplorer(_options: EmailExplorerOptions = {}) {
+
 	// Merge user options with defaults
 	const options: EmailExplorerOptions = {
-		..._options,
+        ..._options,
 		auth: {
 			...defaultOptions.auth,
 			..._options.auth,
@@ -1716,26 +1717,14 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
 			// Make options available to routes via env
 			env.config = options;
-			await bootstrapDefaultAdmins(env);
+			await bootstrapMailboxDO(env);
 
 			// Create a new request with context for middleware
 			const url = new URL(request.url);
-			const isApiRoute = url.pathname.startsWith("/api/");
-
-			if (!isApiRoute) {
-				const assetResponse = await env.ASSETS.fetch(request);
-				if (assetResponse.status !== 404 || request.method !== "GET") {
-					return assetResponse;
-				}
-
-				const spaRequest = new Request(new URL("/", request.url), request);
-				return env.ASSETS.fetch(spaRequest);
-			}
 
 			// Check if auth is required (either globally enabled or auth-specific routes)
 			// Auth is enforced by default (when enabled is undefined) unless explicitly disabled
 			const needsAuth =
-				isApiRoute &&
 				(options.auth?.enabled !== false && !isPublicRoute(url.pathname)) ||
 				requiresSession(url.pathname);
 
@@ -1770,5 +1759,3 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		},
 	};
 }
-  
-export default EmailExplorer();
