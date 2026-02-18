@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
+import { getAuthStub } from "../mailbox-client";
 import type { Env, Session } from "../types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
@@ -56,12 +57,6 @@ const UpdateUserRequestSchema = z.object({
 	password: z.string().min(5).optional(),
 });
 
-// Helper function to get auth DO
-function getAuthDO(env: Env) {
-	const authId = env.MAILBOX.idFromName("AUTH");
-	return env.MAILBOX.get(authId);
-}
-
 // Helper function to extract session token
 function getSessionToken(c: AppContext): string | null {
 	// Try Authorization header first
@@ -109,7 +104,7 @@ export class PostRegister extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { email, password } = data.body;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 		const registerEnabled = c.env.config?.auth?.registerEnabled;
 
 		// Check registration eligibility
@@ -168,7 +163,7 @@ export class PostLogin extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { email, password } = data.body;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 		const session = await authDO.login(email, password);
 
 		if (!session) {
@@ -199,7 +194,7 @@ export class PostLogout extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const sessionToken = getSessionToken(c);
 		if (sessionToken) {
-			const authDO = getAuthDO(c.env);
+			const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 			await authDO.logout(sessionToken);
 		}
 
@@ -281,7 +276,7 @@ export class PostAdminRegister extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { email, password } = data.body;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 
 		try {
 			const user = await authDO.register(email, password, false);
@@ -326,7 +321,7 @@ export class GetUsers extends OpenAPIRoute {
 			return c.json({ error: "Admin privileges required" }, 403);
 		}
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 		const users = await authDO.getUsers();
 
 		return c.json(users);
@@ -373,7 +368,7 @@ export class PutUser extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { userId } = data.params;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 
 		if (data.body.password !== undefined) {
 			await authDO.updateUserPassword(userId, data.body.password);
@@ -424,7 +419,7 @@ export class PostGrantAccess extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { userId, mailboxId, role } = data.body;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 		await authDO.grantMailboxAccess(userId, mailboxId, role);
 
 		return c.json({ status: "access granted" });
@@ -468,7 +463,7 @@ export class PostRevokeAccess extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { userId, mailboxId } = data.body;
 
-		const authDO = getAuthDO(c.env);
+		const authDO = getAuthStub(c.env, "routes.auth.PostRegister");
 		await authDO.revokeMailboxAccess(userId, mailboxId);
 
 		return c.json({ status: "access revoked" });

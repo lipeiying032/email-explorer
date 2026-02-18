@@ -18,7 +18,5 @@ name = "SEND_EMAIL"
 [[durable_objects.bindings]]
 name = "MAILBOX"
 class_name = "MailboxDO"
+script_name = "external-mailbox-worker"
 
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["MailboxDO"]

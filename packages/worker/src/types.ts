@@ -25,7 +25,7 @@ export interface User {
 }
 
 export type Env = {
-	MAILBOX: DurableObjectNamespace<import("./durableObject/index").MailboxDO>;
+	MAILBOX: DurableObjectNamespace;
 	BUCKET: R2Bucket;
 	SEND_EMAIL: SendEmail;
 	ASSETS: Fetcher;

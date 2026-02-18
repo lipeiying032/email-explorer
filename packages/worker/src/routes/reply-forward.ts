@@ -3,6 +3,7 @@ import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
 import { buildMimeMessage } from "../mime-builder";
+import { getMailboxStub } from "../mailbox-client";
 import type { Env, Session } from "../types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
@@ -82,9 +83,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 		}
 
 		// Get the original email to extract threading info
-		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "routes.reply-forward.PostReplyEmail");
 		const originalEmail = (await stub.getEmail(id)) as any;
 
 		if (!originalEmail) {
@@ -210,9 +209,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 		}
 
 		// Get the original email
-		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "routes.reply-forward.PostForwardEmail");
 		const originalEmail = (await stub.getEmail(id)) as any;
 
 		if (!originalEmail) {
