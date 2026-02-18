@@ -14,11 +14,3 @@ bucket_name = "email-explorer"
 
 [[send_email]]
 name = "SEND_EMAIL"
-
-[[durable_objects.bindings]]
-name = "MAILBOX"
-class_name = "MailboxDO"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["MailboxDO"]
