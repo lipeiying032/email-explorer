@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
 import { buildMimeMessage } from "./mime-builder";
+import { getAuthStub, getMailboxStub } from "./mailbox-client";
 import {
 	GetMe,
 	GetUsers,
@@ -21,7 +22,6 @@ import type { EmailExplorerOptions, Env, Session } from "./types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
 
-export { MailboxDO } from "./durableObject";
 
 // Schemas
 const MailboxSchema = z.object({
@@ -381,8 +381,7 @@ class PostMailbox extends OpenAPIRoute {
 
 		// Initialize the durable object for this mailbox
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(email);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, email, "index.postMailbox");
 
 		// Trigger first run of the durable object to initialize database
 		await stub.getFolders();
@@ -436,8 +435,7 @@ class GetEmails extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const emails = await stub.getEmails({
 			folder,
@@ -527,8 +525,7 @@ class PostEmail extends OpenAPIRoute {
 		const messageId = crypto.randomUUID();
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const attachmentData = [];
 		if (attachments) {
@@ -596,8 +593,7 @@ class GetEmail extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const email = await stub.getEmail(id);
 
@@ -642,8 +638,7 @@ class PutEmail extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const email = await stub.updateEmail(id, { read, starred });
 
@@ -683,8 +678,7 @@ class DeleteEmail extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const attachments = await stub.deleteEmail(id);
 
@@ -736,8 +730,7 @@ class PostMoveEmail extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const success = await stub.moveEmail(id, folderId);
 
@@ -778,8 +771,7 @@ class GetFolders extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const folders = await stub.getFolders();
 
@@ -819,8 +811,7 @@ class PostFolder extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const slug = slugify(name);
 		const newFolder = await stub.createFolder(slug, name);
@@ -863,8 +854,7 @@ class PutFolder extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const updatedFolder = await stub.updateFolder(id, name);
 
@@ -908,8 +898,7 @@ class DeleteFolder extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const success = await stub.deleteFolder(id);
 
@@ -950,8 +939,7 @@ class GetContacts extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const contacts = await stub.getContacts();
 
@@ -991,8 +979,7 @@ class PostContact extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const newContact = await stub.createContact({ name, email });
 
@@ -1030,8 +1017,7 @@ class PutContact extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const updatedContact = await stub.updateContact(Number.parseInt(id, 10), {
 			name,
@@ -1074,8 +1060,7 @@ class DeleteContact extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		stub.deleteContact(Number.parseInt(id, 10));
 
@@ -1121,8 +1106,7 @@ class GetSearch extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const emails = await stub.searchEmails({
 			query,
@@ -1173,8 +1157,7 @@ class GetAttachment extends OpenAPIRoute {
 		}
 
 		const ns = c.env.MAILBOX;
-		const doId = ns.idFromName(mailboxId);
-		const stub = ns.get(doId);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		const attachment = await stub.getAttachment(attachmentId);
 
@@ -1238,8 +1221,7 @@ class CreateDummyMailbox extends OpenAPIRoute {
 		await c.env.BUCKET.put(key, JSON.stringify(settings));
 
 		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
+		const stub = getMailboxStub(c.env, mailboxId, "index.mailbox.route");
 
 		// This will trigger the first run of the durable object
 		await stub.getFolders();
@@ -1276,8 +1258,7 @@ class PostForgotPassword extends OpenAPIRoute {
 		const { email } = data.body;
 
 		const ns = c.env.MAILBOX;
-		const authId = ns.idFromName("AUTH");
-		const authStub = ns.get(authId);
+		const authStub = getAuthStub(c.env, "index.auth.password-recovery");
 
 		const user = await authStub.getUserByEmail(email);
 		if (!user) {
@@ -1419,8 +1400,7 @@ class PostResetPassword extends OpenAPIRoute {
 
 		// Update password
 		const ns = c.env.MAILBOX;
-		const authId = ns.idFromName("AUTH");
-		const authStub = ns.get(authId);
+		const authStub = getAuthStub(c.env, "index.auth.password-recovery");
 
 		try {
 			await authStub.updateUserPassword(tokenData.userId, newPassword);
@@ -1456,8 +1436,7 @@ class GetAppSettings extends OpenAPIRoute {
 		let userCount = 0;
 		if (authEnabled) {
 			const ns = c.env.MAILBOX;
-			const authId = ns.idFromName("AUTH");
-			const authStub = ns.get(authId);
+			const authStub = getAuthStub(c.env, "index.auth.password-recovery");
 			try {
 				const users = await authStub.getUsers();
 				userCount = users.length;
@@ -1515,8 +1494,7 @@ async function validateSession(
 	const token = getSessionToken(request);
 	if (!token) return null;
 
-	const authId = env.MAILBOX.idFromName("AUTH");
-	const authDO = env.MAILBOX.get(authId);
+	const authDO = getAuthStub(env, "index.validateSession");
 
 	try {
 		const session = await authDO.validateSession(token);
@@ -1644,8 +1622,7 @@ async function receiveEmail(
 	}
 
 	const ns = env.MAILBOX;
-	const id = ns.idFromName(mailboxId);
-	const stub = ns.get(id);
+	const stub = getMailboxStub(env, mailboxId, "index.receiveEmail");
 
 	const attachmentData = [];
 	if (parsedEmail.attachments) {
@@ -1689,23 +1666,6 @@ const defaultOptions: EmailExplorerOptions = {
 	},
 };
 
-function bootstrapMailboxDO(
-	env: Env,
-	context: ExecutionContext,
-): void {
-	context.waitUntil(
-		(async () => {
-			try {
-				const mailboxId = env.MAILBOX.idFromName("MailboxDO");
-				const mailboxDO = env.MAILBOX.get(mailboxId);
-				await mailboxDO.getFolders();
-			} catch (error) {
-				console.error("Failed to bootstrap MailboxDO:", error);
-			}
-		})(),
-	);
-}
-
 export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 
 	// Merge user options with defaults
@@ -1728,7 +1688,6 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
 			// Make options available to routes via env
 			env.config = options;
-			bootstrapMailboxDO(env, context);
 
 			// Create a new request with context for middleware
 			const url = new URL(request.url);

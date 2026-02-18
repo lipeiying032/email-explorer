@@ -23,7 +23,7 @@
 		{
 			"binding": "BUCKET",
 			"bucket_name": "email-explorer",
-			"preview_bucket_name": "email-explorer",
+			"preview_bucket_name": "email-explorer"
 //			"remote": true
 		}
 	],
@@ -36,14 +36,9 @@
 		"bindings": [
 			{
 				"name": "MAILBOX",
-				"class_name": "MailboxDO"
+				"class_name": "MailboxDO",
+				"script_name": "external-mailbox-worker"
 			}
 		]
-	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": ["MailboxDO"]
-		}
-	]
+	}
 }
